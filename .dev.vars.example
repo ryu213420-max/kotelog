@@ -1,0 +1,6 @@
+# ローカル開発用（.dev.vars にコピーして使う）
+GOOGLE_CLIENT_SECRET=
+# localhost 限定のテストログインを有効化（本番では絶対に設定しない）
+DEV_LOGIN=1
+# Workers AI をモック応答にする（E2E テスト用）
+AI_MOCK=1

@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wanlog",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/auth/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wanlog",
+      "database_id": "ed0884e7-9a0d-4a53-8588-e6916fd37eb0",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "kv_namespaces": [{ "binding": "PHOTOS", "id": "1d221f34675347f293b2fecdac53888c" }],
+  "ai": { "binding": "AI" },
+  "vars": { "GOOGLE_CLIENT_ID": "" }
+}

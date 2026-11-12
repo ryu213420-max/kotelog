@@ -1,0 +1,1 @@
+{ "name": "わんログ", "short_name": "わんログ", "start_url": "/", "display": "standalone", "background_color": "#2a1d15", "theme_color": "#2a1d15", "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
