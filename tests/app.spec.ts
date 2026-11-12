@@ -26,7 +26,7 @@ test.describe("認証", () => {
     const btn = page.getByRole("link", { name: "Google でログイン" });
     await expect(btn).toHaveAttribute("href", "/auth/google");
     const text = (await page.locator("main").innerText()).replace(/\s+/g, "");
-    expect(text).toBe("わんログGoogleでログイン");
+    expect(text).toBe("こてログGoogleでログイン");
   });
 
   test("API は未ログインで 401", async ({ request }) => {

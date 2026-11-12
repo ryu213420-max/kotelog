@@ -5,7 +5,7 @@ type Ctx = { dogs: Dog[]; dog: Dog | null; setDogId: (id: string) => void; loadi
 const DogCtx = createContext<Ctx>({ dogs: [], dog: null, setDogId: () => {}, loading: true });
 export const useCurrentDog = () => useContext(DogCtx);
 
-const KEY = "wanlog.dog";
+const KEY = "kotelog.dog";
 const read = () => {
   try {
     return localStorage.getItem(KEY);

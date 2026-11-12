@@ -36,7 +36,7 @@ export default function Login() {
           transition={{ delay: 0.15, ...spring }}
           className="mt-5 text-3xl font-black tracking-wide"
         >
-          わんログ
+          こてログ
         </motion.h1>
 
         {err && (

@@ -11,7 +11,7 @@ import { PressButton, Sheet, spring } from "./ui";
 
 type Msg = { role: "user" | "assistant"; content: string; record?: Rec | null };
 
-export const celebrate = () => window.dispatchEvent(new CustomEvent("wanlog:recorded"));
+export const celebrate = () => window.dispatchEvent(new CustomEvent("kotelog:recorded"));
 
 const SUGGEST = ["今日の様子は？", "散歩30分行ったよ", "最近の体重は？"];
 
@@ -38,7 +38,7 @@ export function DogAgent() {
   useEffect(() => {
     if (!dog) return;
     try {
-      setMsgs(JSON.parse(sessionStorage.getItem(`wanlog.agent.${dog.id}`) ?? "[]"));
+      setMsgs(JSON.parse(sessionStorage.getItem(`kotelog.agent.${dog.id}`) ?? "[]"));
     } catch {
       setMsgs([]);
     }
@@ -46,7 +46,7 @@ export function DogAgent() {
   useEffect(() => {
     if (!dog) return;
     try {
-      sessionStorage.setItem(`wanlog.agent.${dog.id}`, JSON.stringify(msgs.slice(-30)));
+      sessionStorage.setItem(`kotelog.agent.${dog.id}`, JSON.stringify(msgs.slice(-30)));
     } catch {
       /* noop */
     }
@@ -74,8 +74,8 @@ export function DogAgent() {
       setTimeout(() => setMood("idle"), 1100);
       setTimeout(() => setBubble(null), 2400);
     };
-    window.addEventListener("wanlog:recorded", on);
-    return () => window.removeEventListener("wanlog:recorded", on);
+    window.addEventListener("kotelog:recorded", on);
+    return () => window.removeEventListener("kotelog:recorded", on);
   }, []);
 
   useEffect(() => {
