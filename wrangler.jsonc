@@ -19,5 +19,5 @@
   ],
   "kv_namespaces": [{ "binding": "PHOTOS", "id": "1d221f34675347f293b2fecdac53888c" }],
   "ai": { "binding": "AI" },
-  "vars": { "GOOGLE_CLIENT_ID": "" }
+  "vars": { "GOOGLE_CLIENT_ID": "221964624700-i77e4lt4jl3o21kdqgsbfbcf3o0ionqk.apps.googleusercontent.com" }
 }
