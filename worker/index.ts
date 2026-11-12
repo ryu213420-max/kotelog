@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { type AppEnv, destroySession, devLogin, getSessionUser, googleCallback, googleStart } from "./auth";
+import { type AppEnv, destroySession, devLogin, devReset, getSessionUser, googleCallback, googleStart } from "./auth";
 import { RECORD_TYPES, type AgentMsg, type RecordType, agentChat, captionPhoto, parseRecord, summarize } from "./ai";
 
 const app = new Hono<AppEnv>();
@@ -9,6 +9,7 @@ const app = new Hono<AppEnv>();
 app.get("/auth/google", googleStart);
 app.get("/auth/google/callback", googleCallback);
 app.get("/auth/dev-login", devLogin);
+app.post("/auth/dev-reset", devReset);
 app.post("/auth/logout", async (c) => {
   await destroySession(c);
   return c.json({ ok: true });
@@ -34,9 +35,12 @@ const bad = (msg: string) => {
 const str = (v: unknown, max = 200) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : v === "" || v == null ? null : Number.isFinite(Number(v)) ? Number(v) : null);
 
-async function ownDog(c: { env: Env; get: (k: "user") => { id: string } }, dogId: string) {
-  const dog = await c.env.DB.prepare("SELECT * FROM dogs WHERE id = ? AND user_id = ?")
-    .bind(dogId, c.get("user").id)
+/** 許可された家族は全員、同じわんこと記録を共有する */
+const PHOTO_KEY = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(webp|jpeg|png)$/;
+
+async function ownDog(c: { env: Env }, dogId: string) {
+  const dog = await c.env.DB.prepare("SELECT * FROM dogs WHERE id = ?")
+    .bind(dogId)
     .first<Record<string, unknown> & { name: string }>();
   if (!dog) throw new HTTPException(404, { message: "dog not found" });
   return dog;
@@ -46,9 +50,7 @@ api.get("/me", (c) => c.json(c.get("user")));
 
 /* dogs */
 api.get("/dogs", async (c) => {
-  const { results } = await c.env.DB.prepare("SELECT * FROM dogs WHERE user_id = ? ORDER BY created_at")
-    .bind(c.get("user").id)
-    .all();
+  const { results } = await c.env.DB.prepare("SELECT * FROM dogs ORDER BY created_at").all();
   return c.json(results);
 });
 
@@ -111,7 +113,7 @@ function recordFields(b: Record<string, unknown>) {
 api.post("/dogs/:id/records", async (c) => {
   await ownDog(c, c.req.param("id"));
   const f = recordFields(await c.req.json());
-  if (f.photo_key && !f.photo_key.startsWith(`${c.get("user").id}/`)) bad("invalid photo");
+  if (f.photo_key && !PHOTO_KEY.test(f.photo_key)) bad("invalid photo");
   const id = crypto.randomUUID();
   await c.env.DB.prepare(
     "INSERT INTO records (id, dog_id, user_id, type, at, value, tag, note, photo_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -122,8 +124,8 @@ api.post("/dogs/:id/records", async (c) => {
 });
 
 api.delete("/records/:id", async (c) => {
-  const r = await c.env.DB.prepare("DELETE FROM records WHERE id = ? AND user_id = ? RETURNING photo_key")
-    .bind(c.req.param("id"), c.get("user").id)
+  const r = await c.env.DB.prepare("DELETE FROM records WHERE id = ? RETURNING photo_key")
+    .bind(c.req.param("id"))
     .first<{ photo_key: string | null }>();
   if (!r) return c.json({ error: "not found" }, 404);
   if (r.photo_key) c.executionCtx.waitUntil(c.env.PHOTOS.delete(r.photo_key));
@@ -178,7 +180,7 @@ api.post("/photos", async (c) => {
 
 api.get("/photos/:uid/:file", async (c) => {
   const key = `${c.req.param("uid")}/${c.req.param("file")}`;
-  if (c.req.param("uid") !== c.get("user").id) return c.json({ error: "forbidden" }, 403);
+  if (!PHOTO_KEY.test(key)) return c.json({ error: "not found" }, 404);
   const obj = await c.env.PHOTOS.getWithMetadata<{ contentType: string }>(key, "stream");
   if (!obj.value) return c.json({ error: "not found" }, 404);
   return new Response(obj.value, {
@@ -196,7 +198,7 @@ api.post("/ai/parse", async (c) => {
 
 api.post("/ai/caption", async (c) => {
   const { key, dogId } = await c.req.json<{ key?: string; dogId?: string }>();
-  if (!key || !key.startsWith(`${c.get("user").id}/`)) bad("invalid key");
+  if (!key || !PHOTO_KEY.test(key)) bad("invalid key");
   const dog = await ownDog(c, dogId ?? "");
   const obj = await c.env.PHOTOS.getWithMetadata<{ contentType: string }>(key!, "arrayBuffer");
   if (!obj.value) return c.json({ error: "not found" }, 404);

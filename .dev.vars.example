@@ -4,3 +4,5 @@ GOOGLE_CLIENT_SECRET=
 DEV_LOGIN=1
 # Workers AI をモック応答にする（E2E テスト用）
 AI_MOCK=1
+# 利用を許可するメール（カンマ区切り、"@ドメイン" も可）。本番は wrangler secret put ALLOWED_EMAILS
+ALLOWED_EMAILS=@example.test

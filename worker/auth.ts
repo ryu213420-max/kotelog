@@ -5,6 +5,16 @@ export type User = { id: string; email: string; name: string; avatar: string | n
 export type AppEnv = { Bindings: Env; Variables: { user: User } };
 
 const SESSION_DAYS = 30;
+
+/** 利用を許可するメール（ALLOWED_EMAILS: カンマ区切り。"@example.com" でドメイン単位）。未設定なら誰も入れない */
+export function isAllowed(env: Env, email: string) {
+  const e = email.trim().toLowerCase();
+  return (env.ALLOWED_EMAILS ?? "")
+    .split(",")
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean)
+    .some((a) => (a.startsWith("@") ? e.endsWith(a) : e === a));
+}
 const enc = new TextEncoder();
 
 export const b64url = (buf: ArrayBuffer | Uint8Array) =>
@@ -33,7 +43,7 @@ export async function getSessionUser(c: Context<AppEnv>): Promise<User | null> {
   )
     .bind(await sha256(token))
     .first<User & { expires_at: number }>();
-  if (!row || row.expires_at < Date.now()) return null;
+  if (!row || row.expires_at < Date.now() || !isAllowed(c.env, row.email)) return null;
   return { id: row.id, email: row.email, name: row.name, avatar: row.avatar };
 }
 
@@ -113,6 +123,7 @@ export async function googleCallback(c: Context<AppEnv>) {
   if (!infoRes.ok) return c.redirect("/login?error=userinfo");
   const info = await infoRes.json<{ sub: string; email: string; email_verified: boolean; name?: string; picture?: string }>();
   if (!info.email_verified) return c.redirect("/login?error=email");
+  if (!isAllowed(c.env, info.email)) return c.redirect("/login?error=denied");
 
   const userId = await upsertUser(c.env, info.sub, info.email, info.name ?? info.email, info.picture ?? null);
   await createSession(c, userId);
@@ -124,7 +135,17 @@ export async function devLogin(c: Context<AppEnv>) {
   const host = new URL(c.req.url).hostname;
   if (c.env.DEV_LOGIN !== "1" || !["localhost", "127.0.0.1"].includes(host)) return c.notFound();
   const name = c.req.query("name") || "テストユーザー";
-  const userId = await upsertUser(c.env, `dev:${name}`, `${encodeURIComponent(name)}@example.test`, name, null);
+  const email = c.req.query("email") || `${encodeURIComponent(name)}@example.test`;
+  if (!isAllowed(c.env, email)) return c.redirect("/login?error=denied");
+  const userId = await upsertUser(c.env, `dev:${name}`, email, name, null);
   await createSession(c, userId);
   return c.redirect("/");
+}
+
+/** localhost 限定：E2E テスト用に全データを消す。DEV_LOGIN=1 のときだけ有効。 */
+export async function devReset(c: Context<AppEnv>) {
+  const host = new URL(c.req.url).hostname;
+  if (c.env.DEV_LOGIN !== "1" || !["localhost", "127.0.0.1"].includes(host)) return c.notFound();
+  await c.env.DB.batch(["records", "dogs", "sessions", "users"].map((t) => c.env.DB.prepare(`DELETE FROM ${t}`)));
+  return c.json({ ok: true });
 }

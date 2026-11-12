@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
+test.beforeEach(async ({ request }) => {
+  expect((await request.post("/auth/dev-reset")).ok()).toBe(true);
+});
+
 const uid = () => `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 async function login(page: Page, name = uid()) {
@@ -211,26 +215,41 @@ test.describe("わんこ管理", () => {
   });
 });
 
-test.describe("セキュリティ", () => {
-  test("他人のわんこ・写真にはアクセスできない", async ({ browser }) => {
+test.describe("家族共有とアクセス制限", () => {
+  test("家族は同じこてつの記録と写真を共有できる", async ({ browser }) => {
     const a = await browser.newContext();
     const pa = await a.newPage();
-    await login(pa);
+    await login(pa, "パパ");
     await registerDog(pa);
     const dogId = (await (await pa.request.get("/api/dogs")).json())[0].id;
-    const up = await pa.request.post("/api/photos", { data: pngBuffer(), headers: { "content-type": "image/png", origin: "http://localhost:5173" } });
-    const { key } = await up.json();
+    const { key } = await (
+      await pa.request.post("/api/photos", { data: pngBuffer(), headers: { "content-type": "image/png", origin: "http://localhost:5173" } })
+    ).json();
+    await pa.request.post(`/api/dogs/${dogId}/records`, {
+      data: { type: "walk", value: 25, photo_key: key },
+      headers: { origin: "http://localhost:5173" },
+    });
 
     const b = await browser.newContext();
     const pb = await b.newPage();
-    await login(pb);
-    expect((await pb.request.get(`/api/dogs/${dogId}/records`)).status()).toBe(404);
-    expect((await pb.request.get(`/api/photos/${key}`)).status()).toBe(403);
-    expect(
-      (await pb.request.post(`/api/dogs/${dogId}/records`, { data: { type: "walk" }, headers: { origin: "http://localhost:5173" } })).status(),
-    ).toBe(404);
+    await login(pb, "ママ");
+    await expect(pb.getByTestId("dog-name")).toHaveText("こてつ");
+    await expect(pb.getByTestId("record-item").first()).toContainText("散歩・25分");
+    expect((await pb.request.get(`/api/photos/${key}`)).status()).toBe(200);
     await a.close();
     await b.close();
+  });
+
+  test("許可されていないメールではログインできない", async ({ page }) => {
+    await page.goto("/auth/dev-login?name=stranger&email=stranger@gmail.com");
+    await expect(page).toHaveURL(/\/login\?error=denied$/);
+    await expect(page.getByRole("alert")).toHaveText("このアカウントでは利用できません");
+    expect((await page.request.get("/api/me")).status()).toBe(401);
+  });
+
+  test("不正な写真キーは拒否", async ({ page }) => {
+    await login(page);
+    expect((await page.request.get("/api/photos/..%2F..%2Fx/y.png")).status()).toBe(404);
   });
 
   test("別オリジンからの書き込みは拒否", async ({ page }) => {

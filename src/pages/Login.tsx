@@ -8,6 +8,7 @@ const ERR: Record<string, string> = {
   token: "Google 認証に失敗しました",
   userinfo: "Google 認証に失敗しました",
   email: "メールアドレスが未確認です",
+  denied: "このアカウントでは利用できません",
 };
 
 export default function Login() {

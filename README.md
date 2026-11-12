@@ -16,7 +16,7 @@
   - **AI クイック入力**：「朝ごはん 80g」など自然文や音声から記録フォームを自動入力
   - **写真キャプション**：写真から日記文を生成
   - **AI まとめ**：直近14日の記録から気づきを3行で
-- Google ログインのみ
+- Google ログインのみ。`ALLOWED_EMAILS` に登録したメールの人だけが使え、登録した家族は全員で同じ記録を共有
 - 全画面スケルトンローディング、リキッドグラス UI（茶色ベース、ライト/ダーク対応）
 
 ## 技術選定と理由
@@ -63,6 +63,7 @@ npx wrangler d1 create wanlog            # 出力された database_id を wrang
 npx wrangler kv namespace create wanlog-photos   # 出力された id を wrangler.jsonc に設定
 npm run db:migrate:remote
 npx wrangler secret put GOOGLE_CLIENT_SECRET
+npx wrangler secret put ALLOWED_EMAILS      # 例: a@gmail.com,b@gmail.com（"@example.com" でドメイン単位）
 npm run deploy
 ```
 
